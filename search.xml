@@ -1,26 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <search>
   <entry>
-    <title>Test</title>
-    <url>/2019/01/03/Test/</url>
-    <content><![CDATA[<h2 id="introduction">Introduction</h2>
-<p>Test post for new features</p>
-<h2 id="math-support">Math support</h2>
-<figure class="highlight latex"><table><tr><td class="code"><pre><span class="line"><span class="built_in">$</span><span class="built_in">$</span><span class="keyword">\begin</span>&#123;align&#125;</span><br><span class="line">a <span class="built_in">&amp;</span>= b + c <span class="keyword">\label</span>&#123;eq3&#125; <span class="keyword">\\</span></span><br><span class="line">x <span class="built_in">&amp;</span>= yz <span class="keyword">\label</span>&#123;eq4&#125; <span class="keyword">\\</span></span><br><span class="line">l <span class="built_in">&amp;</span>= m - n <span class="keyword">\label</span>&#123;eq5&#125;</span><br><span class="line"><span class="keyword">\end</span>&#123;align&#125;<span class="built_in">$</span><span class="built_in">$</span></span><br></pre></td></tr></table></figure>
-<p><span class="math display">\[\begin{align}
-a &amp;= b + c \label{eq3} \\
-x &amp;= yz \label{eq4} \\
-l &amp;= m - n \label{eq5}
-\end{align}\]</span></p>
-]]></content>
-      <categories>
-        <category>Test</category>
-      </categories>
-      <tags>
-        <tag>test</tag>
-      </tags>
-  </entry>
-  <entry>
     <title>修复KDE Plasma 5.15.5 在NVIDIA Optimus的PC上使用NVIDIA显卡时桌面无响应的问题</title>
     <url>/2019/06/10/%E4%BF%AE%E5%A4%8DKDE-Plasma-5-15-5-%E5%9C%A8NVIDIA-Optimus%E7%9A%84PC%E4%B8%8A%E4%BD%BF%E7%94%A8NVIDIA%E6%98%BE%E5%8D%A1%E6%97%B6%E6%A1%8C%E9%9D%A2%E6%97%A0%E5%93%8D%E5%BA%94%E7%9A%84%E9%97%AE%E9%A2%98/</url>
     <content><![CDATA[<h2 id="系统信息">系统信息</h2>
@@ -62,6 +42,26 @@ l &amp;= m - n \label{eq5}
         <tag>KDE</tag>
         <tag>qt</tag>
         <tag>NVIDIA</tag>
+      </tags>
+  </entry>
+  <entry>
+    <title>Test</title>
+    <url>/2019/01/03/Test/</url>
+    <content><![CDATA[<h2 id="introduction">Introduction</h2>
+<p>Test post for new features</p>
+<h2 id="math-support">Math support</h2>
+<figure class="highlight latex"><table><tr><td class="code"><pre><span class="line"><span class="built_in">$</span><span class="built_in">$</span><span class="keyword">\begin</span>&#123;align&#125;</span><br><span class="line">a <span class="built_in">&amp;</span>= b + c <span class="keyword">\label</span>&#123;eq3&#125; <span class="keyword">\\</span></span><br><span class="line">x <span class="built_in">&amp;</span>= yz <span class="keyword">\label</span>&#123;eq4&#125; <span class="keyword">\\</span></span><br><span class="line">l <span class="built_in">&amp;</span>= m - n <span class="keyword">\label</span>&#123;eq5&#125;</span><br><span class="line"><span class="keyword">\end</span>&#123;align&#125;<span class="built_in">$</span><span class="built_in">$</span></span><br></pre></td></tr></table></figure>
+<p><span class="math display">\[\begin{align}
+a &amp;= b + c \label{eq3} \\
+x &amp;= yz \label{eq4} \\
+l &amp;= m - n \label{eq5}
+\end{align}\]</span></p>
+]]></content>
+      <categories>
+        <category>Test</category>
+      </categories>
+      <tags>
+        <tag>test</tag>
       </tags>
   </entry>
   <entry>
