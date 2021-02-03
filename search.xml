@@ -1,0 +1,446 @@
+<?xml version="1.0" encoding="utf-8"?>
+<search>
+  <entry>
+    <title>Test</title>
+    <url>/2019/01/03/Test/</url>
+    <content><![CDATA[<h2 id="introduction">Introduction</h2>
+<p>Test post for new features</p>
+<h2 id="math-support">Math support</h2>
+<figure class="highlight latex"><table><tr><td class="code"><pre><span class="line"><span class="built_in">$</span><span class="built_in">$</span><span class="keyword">\begin</span>&#123;align&#125;</span><br><span class="line">a <span class="built_in">&amp;</span>= b + c <span class="keyword">\label</span>&#123;eq3&#125; <span class="keyword">\\</span></span><br><span class="line">x <span class="built_in">&amp;</span>= yz <span class="keyword">\label</span>&#123;eq4&#125; <span class="keyword">\\</span></span><br><span class="line">l <span class="built_in">&amp;</span>= m - n <span class="keyword">\label</span>&#123;eq5&#125;</span><br><span class="line"><span class="keyword">\end</span>&#123;align&#125;<span class="built_in">$</span><span class="built_in">$</span></span><br></pre></td></tr></table></figure>
+<p><span class="math display">\[\begin{align}
+a &amp;= b + c \label{eq3} \\
+x &amp;= yz \label{eq4} \\
+l &amp;= m - n \label{eq5}
+\end{align}\]</span></p>
+]]></content>
+      <categories>
+        <category>Test</category>
+      </categories>
+      <tags>
+        <tag>test</tag>
+      </tags>
+  </entry>
+  <entry>
+    <title>修复KDE Plasma 5.15.5 在NVIDIA Optimus的PC上使用NVIDIA显卡时桌面无响应的问题</title>
+    <url>/2019/06/10/%E4%BF%AE%E5%A4%8DKDE-Plasma-5-15-5-%E5%9C%A8NVIDIA-Optimus%E7%9A%84PC%E4%B8%8A%E4%BD%BF%E7%94%A8NVIDIA%E6%98%BE%E5%8D%A1%E6%97%B6%E6%A1%8C%E9%9D%A2%E6%97%A0%E5%93%8D%E5%BA%94%E7%9A%84%E9%97%AE%E9%A2%98/</url>
+    <content><![CDATA[<h2 id="系统信息">系统信息</h2>
+<figure class="highlight bash"><table><tr><td class="code"><pre><span class="line">Linux/KDE Plasma: manjaro 18.0.4 Illyria</span><br><span class="line">KDE Plasma Version: 5.15.5</span><br><span class="line">KDE Frameworks Version: 5.58.0</span><br><span class="line">Qt Version: 5.12.3</span><br></pre></td></tr></table></figure>
+<h2 id="bug原因">bug原因</h2>
+<a id="more"></a>
+<p>来自kde社区Erik：</p>
+<blockquote>
+<p>Alright, I think I see what the issue is. For context, on PRIME systems, since there isn't actually a display connected to the NVIDIA GPU, we rely on xf86-video-modeset, which drives the Intel GPU, to call to our driver after each vblank. However, it will actually only do so if there has been damage to the screen. So what I think we have here is QtQuick's thread waiting on this vblank signal before swapping buffers (since we set MaxFramesAllowed to 1), and KWin's main compositing thread waiting on the QtQuick thread. Since KWin isn't rendering to the screen while it waits, no damage occurs and hence this vblank signal is never sent. I think some timeout is what eventually gets things going again (after about 30 seconds). Does that make sense</p>
+</blockquote>
+<h2 id="修复方式">修复方式</h2>
+<p>对kwin和qt5-base 打特定patch，然后编译安装。具体如下。</p>
+<h3 id="patch-kwin">patch kwin</h3>
+<ol type="1">
+<li><p>从<a href="https://download.kde.org/stable/plasma/">https://download.kde.org/stable/plasma/</a>下载对应版本的kwin源代码 。</p></li>
+<li><p>应用如下的patch，使用<code>tar -Jcf</code>重新打包并计算sha256sum值</p>
+<figure class="highlight diff"><table><tr><td class="code"><pre><span class="line"><span class="comment">diff --git a/main_x11.cpp b/main_x11.cpp</span></span><br><span class="line"><span class="comment">index c83b8240b..17b6060e4 100644</span></span><br><span class="line"><span class="comment">--- a/main_x11.cpp</span></span><br><span class="line"><span class="comment">+++ b/main_x11.cpp</span></span><br><span class="line"><span class="meta">@@ -45,6 +45,7 @@</span> along with this program.  If not, see &lt;http://www.gnu.org/licenses/&gt;.</span><br><span class="line"> #include &lt;QPushButton&gt;</span><br><span class="line"> #include &lt;QVBoxLayout&gt;</span><br><span class="line"> #include &lt;QX11Info&gt;</span><br><span class="line"><span class="addition">+#include &lt;QSurfaceFormat&gt;</span></span><br><span class="line"></span><br><span class="line"> // system</span><br><span class="line"> #ifdef HAVE_UNISTD_H</span><br><span class="line"><span class="meta">@@ -416,6 +417,9 @@</span> KWIN_EXPORT int kdemain(int argc, char * argv[])</span><br><span class="line"></span><br><span class="line">     KWin::Application::createAboutData();</span><br><span class="line">     KQuickAddons::QtQuickSettings::init();</span><br><span class="line"><span class="addition">+    QSurfaceFormat format = QSurfaceFormat::defaultFormat();</span></span><br><span class="line"><span class="addition">+    format.setSwapInterval(0);</span></span><br><span class="line"><span class="addition">+    QSurfaceFormat::setDefaultFormat(format);</span></span><br><span class="line"></span><br><span class="line">     QCommandLineOption replaceOption(QStringLiteral(&quot;replace&quot;), i18n(&quot;Replace already-running ICCCM2.0-compliant window manager&quot;));</span><br></pre></td></tr></table></figure>
+<ol start="3" type="1">
+<li>从<a href="https://git.archlinux.org/svntogit/packages.git/tree/trunk?h=packages/kwin">https://git.archlinux.org/svntogit/packages.git/tree/trunk?h=packages/kwin</a>获取<code>PKGBUILD</code>和<code>kwin.install</code>文件，修改<code>PKGBUILD</code>中的源代码地址和sha256sum,使用<code>makepkg -si --skippgpcheck</code>编译安装，当然也可以<code>--skipchecksums</code></li>
+</ol></li>
+</ol>
+<h3 id="patch-qt5-base">patch qt5-base</h3>
+<p>基本步骤同重新编译kwin。patch如下：</p>
+<figure class="highlight diff"><table><tr><td class="code"><pre><span class="line"><span class="comment">diff --git a/src/plugins/platforms/xcb/gl_integrations/xcb_glx/qglxintegration.cpp b/src/plugins/platforms/xcb/gl_integrations/xcb_glx/qglxintegration.cpp</span></span><br><span class="line"><span class="comment">index 4adf662152..434ea60bfb 100644</span></span><br><span class="line"><span class="comment">--- a/src/plugins/platforms/xcb/gl_integrations/xcb_glx/qglxintegration.cpp</span></span><br><span class="line"><span class="comment">+++ b/src/plugins/platforms/xcb/gl_integrations/xcb_glx/qglxintegration.cpp</span></span><br><span class="line"><span class="meta">@@ -601,6 +601,7 @@</span> void QGLXContext::doneCurrent()</span><br><span class="line">     else</span><br><span class="line">         glXMakeCurrent(m_display, 0, 0);</span><br><span class="line">     m_isPBufferCurrent = false;</span><br><span class="line"><span class="addition">+    m_swapInterval = -1;</span></span><br><span class="line"> &#125;</span><br><span class="line"></span><br><span class="line"> void QGLXContext::swapBuffers(QPlatformSurface *surface)</span><br></pre></td></tr></table></figure>
+<ul>
+<li><p>源代码网址：<a href="https://download.qt.io/official_releases/qt/">https://download.qt.io/official_releases/qt/</a></p></li>
+<li><p>PKGBUILD：<a href="https://git.archlinux.org/svntogit/packages.git/tree/trunk?h=packages/qt5-base">https://git.archlinux.org/svntogit/packages.git/tree/trunk?h=packages/qt5-base</a></p></li>
+</ul>
+<h2 id="references">references</h2>
+<ul>
+<li><a href="https://bugs.kde.org/show_bug.cgi?id=406180">https://bugs.kde.org/show_bug.cgi?id=406180</a></li>
+</ul>
+]]></content>
+      <categories>
+        <category>Linux</category>
+      </categories>
+      <tags>
+        <tag>Linux</tag>
+        <tag>KDE</tag>
+        <tag>qt</tag>
+        <tag>NVIDIA</tag>
+      </tags>
+  </entry>
+  <entry>
+    <title>考研英语作文个人总结</title>
+    <url>/2019/02/27/%E8%80%83%E7%A0%94%E8%8B%B1%E8%AF%AD%E4%BD%9C%E6%96%87%E4%B8%AA%E4%BA%BA%E6%80%BB%E7%BB%93/</url>
+    <content><![CDATA[<h1 id="考研英语作文个人总结">考研英语作文个人总结</h1>
+<h1 id="写在前面">写在前面</h1>
+<p>个人总结： 1. 图表作文首段高度概括图表内容，随后详细描述信息 (纵向横向对比，句子连贯，长短交错，关联紧密，多连词，比较词)，再得出结论，提起下文，末段呼应。 2. 小作文，可自定义场景，务求真诚真实。 <a id="more"></a></p>
+<h1 id="大作文图表作文">大作文（图表作文）</h1>
+<h2 id="开头段句型">开头段句型</h2>
+the line graph shows/describes/illustrates/reveals/unfolds/compares/summarizes/suggests/outlines ... ## 表示变化的表达 * increase、rise、go up、grow、jump、climb、shoot up、boom * decrease、decline、go down、fall、be reduced、drop、sink、dip、slump、plunge * rapidly、sharply、significantly、dramatically * gradually、moderately、steadily、slowly、slightly * fluctuate between A and B * remain the same、stabilize at、remain constant at、remain steady、stay constant at、maintain the same level、level off/out at ## 表示变化的句型 * <strong>there was a steep fall in 1994 followed by a gradual improvement in the subsequent years.</strong> * the price rose and fell over the period, but the trend was definitely upwards. * <strong>the price plunged dramatically in 1994, but it regained its previous level, before soaring to a new peak.</strong> * the number reached its top/peak/bottom at. * the profit doubled from March to May. * the profit increased three times/three-fold from March to May. * its total output value increased by 11.5 percent over its previous year. * <strong>the total volume of state purchase in the first quarter rose by 2.5 percent, compared with the same peroid of last year.</strong> * a greater number/percentage/proportion of men than women are fund in doing ... * <strong>the number/percentage/proportion of men who are employed in managerial position is much/slightly larger than that of women working in the same occupations.</strong> * white is about twice as common as red. ## 通用句型 * according to ... * as shown in ... * as can be seen from ... * it can be seen from ... that ... * it is apparent from ... that ... * as portrayed in ...,it is apparent that ... # 小作文(信、通知...) ## 信 ### 开头称呼 * Dear xxx, * Dear Mr. xxx, * Dear Sir or Madam,to Whom It May Concern, <em>需大写</em> ### 结尾 * 正式 * Yours faithfully * Yours trully * Yours respectfully * Yours gratefully * Yours cordially * 私人 * Best wishes * Best regards * Best regards * Warmesr regards * Yours ever * Yours cordially ## 通知 ### 格式 </strong>
+</p>
+<p align="center">
+　<strong>　Notice</strong>
+</p>
+<p>Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum.</p>
+</p>
+<p align="right">
+　　ABC university
+</p>
+<p align="right">
+　　June 10, 2015
+</p>
+<p>
+<p>　<strong>　</p>
+<hr />
+<p><em>注意，一切缩写形式均不正式，诸如 it's、 there're 均不可取</em></p>
+]]></content>
+      <categories>
+        <category>Languages</category>
+        <category>English</category>
+      </categories>
+      <tags>
+        <tag>英语</tag>
+        <tag>考研</tag>
+        <tag>真题</tag>
+        <tag>作文</tag>
+      </tags>
+  </entry>
+  <entry>
+    <title>考研英语作文真题</title>
+    <url>/2019/02/27/%E8%80%83%E7%A0%94%E8%8B%B1%E8%AF%AD%E4%BD%9C%E6%96%87%E7%9C%9F%E9%A2%98/</url>
+    <content><![CDATA[<h1 id="考研英语历年真题">考研英语历年真题</h1>
+<p>2005~2018年英语一作文范文整理，材料来自网络。 <a id="more"></a></p>
+<h2 id="年">2005年</h2>
+<h3 id="大作文">大作文</h3>
+<p><img src="https://i.loli.net/2019/02/27/5c76860e50042.png" alt="5c76860e50042" />!参考范文</p>
+<p>　　A Helpless Father</p>
+<p>　　The picture ironically shows that a pitiable old man in rags is being helplessly kicked off by his three sons and a daughter, who all wear decent clothes. The father’s negligent children are all guarding their home gates lest their old father “roll into” their households. In other words, they four ignore their moral sense of assuming the responsibility for their old father even though they may be all living a satisfying life. That is a painful scene we often encounter in our daily life.</p>
+<p>　　Sad to say, the moral decline of the younger generations may be a rather explosive situation in our modern society. People definitely have their living conditions improved by wider and wider margins, as evidenced by the four children’s decent dressing, but their moral sense still remains sadly unchanged or in some cases becomes dramatically downgrading. Most people might have become too much self-centered, and even worse, they discard the tradition of giving respect to the elderly. They no longer care for their elders, let alone their neighbors or the disadvantaged; instead they try every means to avoid responsibility for other citizens. When one cares for others, one might even appear stupid or may even be distrusted.</p>
+<p>　　Therefore, we have to take some useful measures to avoid the scene that is mentioned above. We must launch a variety of campaigns about the return to the good tradition of giving help and love to the elderly. Moreover, we must appeal to our government to establish some relevant laws to punish those who avoid their duties. The last but not the least, our respect for age is an indication of the progress of human society, as imperatives of traditions require. We sincerely wish that the old man could be welcome to any of the four households, elegantly dressed, and a smile on the face.</p>
+<h3 id="小作文">小作文</h3>
+<p>Directions:</p>
+<p>　　Two months ago you got a job as an editor for the magazine Designs &amp; fashions. But now you find that the work is not what you expected. You decide to quit. Write a letter to your boss, Mr. Wang, telling him your decision, stating your reason (s), and making an apology.</p>
+<p>　　Write your letter with no less than 100 words.</p>
+<p>　　Write it neatly on ANSWER SHEET 2.</p>
+<p>　　Do not sign your own name at the end of the letter. Use “Li Ming” instead.</p>
+<p>　　Do not write the address. (10 points)</p>
+<p>　　【参考范文】</p>
+<p>　　Dear Mr. Wang,</p>
+<p>　　I am writing this letter to apologize that I plan to quit the position as an editor of your magazine for the reason of myself.</p>
+<p>　　During the time of working here, I have been deeply impressed by the kindness and diligence of all colleagues. But meanwhile I have come to realize that the job probably is not suitable for me because I want a more peaceful and slow life. I find that I am not able to devote all my efforts to a job which I do not really like.</p>
+<p>　　So I am awfully sorry to tell you my decision to quit. Please accept my sincere apologies.</p>
+<p>　　Yours sincerely,</p>
+<p>　　Li Ming</p>
+<h2 id="年-1">2006年</h2>
+<h3 id="大作文-1">大作文</h3>
+<p><img src="https://i.loli.net/2019/02/27/5c7687c23e43f.png" alt="5c7687c23e43f" /> 范文</p>
+<p>　　As is vividly depicted in the photos above, Beckham, the handsome British football superstar, is enjoying a striking popularity among young people. In the first photo, Beckham’s name appears on a young man’s face. The caption indicates that worship for the idol is written on the face. In the second photo, this young man is doing Beckham’s chic hairstyle in a barbershop. We are informed that he is spending 300 yuan imitating his idol’s hairdo.</p>
+<p>　　Undoubtedly, the photos have subtly reflected the social phenomenon that idol worship is prevalent among the youth nowadays. Beckham represents the image of sport hero whose handsome appearance and unparalleled football skills are passionately adored by all the sports fans. Likewise, several teenage girls won their fame overnight in The 2005 Super Girl Contest in China, which provoked nationwide noisy debates on the value and harm of admiring these idols. Generally speaking, young people are inclined to adore the people who excel in appearance, intelligence or talent.</p>
+<p>　　In my opinion, idol worship, the thought-provoking social phenomenon, is a double-edged sword which can deeply influence the growth of young people. If we simply worship the idols by imitating their hairstyles or pursuing fashions unreasonably, the obsession will certainly waste us a great deal of money or time, endangering the efficiency of our work. On the contrary, we will lead a positive and fruitful life if we endeavor to improve ourselves by bridging the gap between our models and us. Therefore, the latter attitude should be adopted to direct our way of life.</p>
+<h3 id="小作文-1">小作文</h3>
+<p>Directions:</p>
+<p>　　You want to contribute to Project Hope by offering financial aid to a child in a remote area. Write a letter to the department concerned, asking them to help find a candidate. You should specify what kind of child you want to help and how you will carry out your plan.</p>
+<p>　　Write your letter in no less than 100 words.</p>
+<p>　　Write it on ANSWER SHEET 2.</p>
+<p>　　Do not sign your name at the end of the letter. Use “Li Ming” instead.</p>
+<p>　　Do not write the address. (10 points)</p>
+<p>　　【参考范文】</p>
+<p>　　To Whom It May Concern,</p>
+<p>　　I am writing this letter to ask if there is a child in need of financial sponsorship through the Project Hope.</p>
+<p>　　I am willing to give financial aid to the children without stable sources of education fees in poverty-stricken area，especially those whose academic performance is excellent. To accomplish my goal, I have already begun to save the necessary financial aid required since last year, and I commit myself to continue. And I would also like to be kept informed of the academic progress of each student.</p>
+<p>　　I hope that my application could get your favorable consideration.</p>
+<p>　　Yours sincerely,</p>
+<p>　　Li Ming</p>
+<h2 id="年-2">2007年</h2>
+<h3 id="大作文-2">大作文</h3>
+<figure>
+<img src="https://i.loli.net/2019/02/27/5c7686ec2948a.png" alt="5c7686ec2948a" /><figcaption aria-hidden="true">5c7686ec2948a</figcaption>
+</figure>
+<p>范文一</p>
+<p>　　In the picture, there shapes a sharp conflict between the goal keeper and the ball player. The former exaggerates the goal and minimizes himself in his mind while the latter thinks otherwise. Actually, both the goal and the keeper are just in normal size. What causes the problem is that they have overestimated the difficulty they are each faced with. Such attitude towards difficulty will surely produce negative effects on the results.</p>
+<p>　　Difficulties are in the pathway of everyone. To overcome them, we must at first make correct judgment on the situation, which is based on confidence, courage and rational thinking. Let's take memory for example. In the process of learning, students need to remember a lot of things, such as Chemical Elements Periodic Table, ancient articles and mathematical formulate. But many complain that it is hard to remember them accurately and they are ready to give up when they feel so. On the contrary, those who learn successfully are confident about themselves and willing to try although they also feel difficult at first. And later they find the more they practice the memory, the easier it becomes to remember.</p>
+<p>　　In conclusion, if we are to succeed in handling the difficult things, we must have selfconfidence, judge the situation rationally and be courageous enough to keep trying.</p>
+<p>　　范文二</p>
+<p>　　As can be seen from the cartoon, different ideas may come from the same thing. In the picture, while trying to catch the upcoming soccer, the goal-keeper says to himself why it is so big. And, the striker simply thinks in a different way, that is why it is so small?!</p>
+<p>　　What makes such a big contrary on the same tournament at the same moment? It is no doubt that they are facing the very same goal and experiencing the very same moment. However, the subjective views result in different impression on the same object. Many of us may still remember the story of a pony crossing the river, which we learned from the textbook in primary school. The squirrel tells him, the river is deep; and the cow tells him, the river is not deep at all. However, in the end, he tells himself a third answer. Therefore, it is not exaggerating to say that most of us are looking into the world with personal ideas. Subjective mental status may result in a really big difference in personal views, just like the goal-keeper and the striker in the drawing.</p>
+<p>　　A possible solution might be to face any situation as objectively as possible. If we realize this in an objective way, it would be good for us to deal with what we encounter in life, especially when we are in setbacks or facing difficulties.</p>
+<h3 id="小作文-2">小作文</h3>
+<p>Directions:</p>
+<p>　　Write a letter to your university library, making suggestions for improving its service.</p>
+<p>　　You should write about 100 words on ANSWER SHEET 2.</p>
+<p>　　Do not sign your own name at the end of the letter. Use “Li Ming” instead.</p>
+<p>　　Do not write the address. (10 points)</p>
+<p>　　【参考范文】</p>
+<p>　　To Whom It May Concern,</p>
+<p>　　I am a student in this university who regularly comes to the library to spend my spare time. Generally speaking, the services you offer here are quite good; however, I have some better suggestions for you.</p>
+<p>　　Firstly, it would be greatly appreciated if you could prolong the time for reading, because in the daytime, most of the students are having classes, and they cannot come to the library. Moreover, since some of the books on shelves are out of date, it is advisable for you to provide us with some new books, such as the latest magazines.</p>
+<p>　　I hope that you will find the above suggestions practical.</p>
+<p>　　Sincerely yours,</p>
+<p>　　Li Ming</p>
+<h2 id="年-3">2008年</h2>
+<h3 id="大作文-3">大作文</h3>
+<p><img src="https://i.loli.net/2019/02/27/5c76879123e7d.png" alt="5c76879123e7d" /> 范文</p>
+<p>　　The picture presents a touching sight to us. Two handicapped men are walking quite quickly by binding their disabled legs together and holding fast to each other's shoulders, with their crutches left behind. What respectable persons they are! They have surpassed their own physical deficiency and explored a smoother and easier way of advancing by drawing strength and support from each other. Obviously, what is highlighted in the picture is cooperation.</p>
+<p>　　In modern times, cooperation has become an efficient and effective way to solve many problems. To begin with, through cooperation, we can heighten our strength so as to accomplish the things that are impossible to be done only by one person. We all have our own limitations and with the fast development of science and technology, we are facing a world that is more and more sophisticated. Therefore, we often need to combine others' abilities and resources to gain success. What's more, cooperation is not the simple addition but fusion of all partners' strength. Making use of different members' strong points, offsetting the weaknesses, supporting mutually and sharing resources with each other, we can then attain to a capacity that is much stronger than the sum of all partners'.</p>
+<p>　　All in all, by cooperation among each other, we will be able to explore a wider world and reach further.</p>
+<h3 id="小作文-3">小作文</h3>
+<p>Directions:</p>
+<p>　　You have just come back from Canada and found a music CD in your luggage that you forgot to return to Bob, your landlord there. Write him a letter to</p>
+<p>　　1) make an apology, and</p>
+<p>　　2) suggest a solution.</p>
+<p>　　You should write about 100 words on ANSWER SHEET 2.</p>
+<p>　　Do not sign your own name at the end of the letter. Use “Li Ming” instead.</p>
+<p>　　Do not write the address. (10 points)</p>
+<p>　　【参考范文】</p>
+<p>　　Dear Bob,</p>
+<p>　　I am writing to express my apology to you, because I had forgotten to return your music CD</p>
+<p>　　before I came back.</p>
+<p>　　Several days ago, I borrowed it when I lived in your house. Unfortunately, just now I found it in my luggage. I was in such a hurry that I forgot to return it to you. To make up for the problem, I will send it to you by post or express as soon as possible. If necessary, I will compensate for any troubles it may cause.</p>
+<p>　　Once again, I feel so sorry for any inconvenience caused. Please accept my sincere apologies.</p>
+<p>　　Sincerely yours,</p>
+<p>　　Li Ming</p>
+<h2 id="年-4">2009年</h2>
+<h3 id="大作文-4">大作文</h3>
+<figure>
+<img src="https://i.loli.net/2019/02/27/5c768804b5085.png" alt="5c768804b5085" /><figcaption aria-hidden="true">5c768804b5085</figcaption>
+</figure>
+<p>　　参考范文：</p>
+<p>　　范文一：</p>
+<p>　　The past decade has witnessed an increasingly inseparable relationship between man and Internet. As is vividly depicted in the picture, within a stretching spider web many people are surfing on line, either to entertain themselves or to meet the work's needs.Actually on-line visiting has become a routine activity in our everyday life.However, it seems rather ironic to present people separated from each other by the spider web when they attempt to communicate.</p>
+<p>　　The metaphoric and impressive portrayal has subtly revealed the duality of the relationship between man and Internet. The spider web undoubtedly serves as a symbol of Internet, both connecting people and isolating them from each other. On the one hand, there is no denying that Internet is currently one of the most efficient media used for interpersonal communication. As a college student, I get on line everyday to discuss news with other people on BBS, to study English by registering for web courses, to chat freely through e-mails with my friends. Being a veteran on-line shopper, I frequently bargain with sellers to purchase books at much lower prices. But on the other hand, a good many people admit that they are too much addicted to Internet to maintain face-to-face contact with their friends and colleagues. Cyber-living resembles the experience of seeing disguised people behind a mask, maintaining distance between one another. Once indulged in the fictitious world, people feel reluctant to approach others and to concentrate on real life. That's why some people have lost the skill of direct contact and get alienated from others.</p>
+<p>　　Therefore, it is necessary for us to use Internet in a reasonable way and restrain from addiction. After all,Internet is invented to connect you and me, and to bring conveniences to our life rather than set a barrier to keep people beyond reach.</p>
+<p>　　范文二：</p>
+<p>　　Today, reaching the peak of popularity is the internet. As the exaggerative and impressive drawing describes, the internet are sweeping the world and increasing people are affected by internet.The internet nets everywhere in the world. Obviously, no corner of the world can resist the charms of internet.</p>
+<p>　　Internet narrows the distance among people, or broadens it? This issue has become a hot-button. No doubts, I embrace the opinion that internet narrows the distance among people. For one thing, by using internet, we can hear various voices from each corner of the world. Sitting in our own houses,through internet, we know that a black man named Obama becomes the president of America and he is under the pressure on interrogation policy. At Washington post.com, we see that the financial crisis floods the Wall Street, and that the whole Africa is fighting against the AIDS. Without internet, perhaps,we know nothing about the world.</p>
+<p>　　For another, internet gives us more chances to make foreign friends.If you are a boy, you may hunt a American girl friend by internet. If you are a businessman, by Alibaba.com or ebay.com, you can sell your products to Europe and Africa. Given all these facts, it is the internet that makes people closer,the world smaller and "One World, One dream" come true.</p>
+<p>　　范文三：</p>
+<p>　　As is vividly depicted in the drawing, in front of computers and in narrow spaces are sitting many people, exchanging their views with each other by surfing the Internet. How impressive the drawing is in describing the people’s addiction to the Internet. The drawer’s intention seems to be highly self-evident and the meaning causes us to be thought-provoking.</p>
+<p>　　It holds apparent that the cartoon is indicative of a pervasive problem with regard to Internet. When it comes to(一谈到) Internet，its great impacts and benefits can’t be too estimated. It is the Internet that makes our big world become a global village. However, as a growing number of individuals are addicted to (沉溺于) the Internet, they forget doing other important work and are gradually indulged in(沉溺在) the virtual world, unwilling to go into the real society. As a consequence(因此), they close their doors and never go out as soon as they return home from work, reluctant to have any face-to-face connection even with other folks except on line. What’s worse, they become indifferent(漠不关心)to their friends,neighbors, as well as relatives.</p>
+<p>　　This phenomenon is harmful to us and our community too. As the pressure in life and work increases, we should learn to use proper ways to relieve it. It’s time that we took some measures to improve the situation. People can be organized to hold some activities together to develop some good hobbies. Consequently, we must make full use of Internet to do everything beneficial to make our daily life both joyful and meaningful. (272words )</p>
+<h3 id="小作文-4">小作文</h3>
+<p>Directions:</p>
+<p>　　Restrictions on the use of plastic bags have not been so successful in some regions. “White pollution ”is still going on. Write a letter to the editor(s) of your local newspaper to</p>
+<p>　　1) give your opinions briefly and</p>
+<p>　　2) make two or three suggestions</p>
+<p>　　You should write about 100 words. Do not sign your own name at the end of the letter. Use "Li Ming" instead. You do not need to write the address.</p>
+<p>　　参考范文：</p>
+<p>　　范文一</p>
+<p>　　Dear editor:</p>
+<p>　　I am writing the letter in purpose of drawing your attention to the fact that some people still use plastic bags in spite of restrictions on the use of them. and I will try to make some conducive recommendations concerning the write pollution.</p>
+<p>　　In my humble opinion, to eradicate the phenomenon of widespread write pollution, it would be wise to take the following actions. Above all, the public should keep in mind to foster consciousness of the negative influence of frequent use plastic bags. Besides, there is no doubt that the authorities should strengthen the enforcement of the laws to completely ban the improper use of plastic bags..</p>
+<p>　　I hope you will find these proposals useful, and I would be ready to discuss this matter with you to further details. Your prompt attention to my recommendations will be highly appreciated.</p>
+<p>　　Yours Sincerely,</p>
+<p>　　Li Ming</p>
+<p>　　范文二</p>
+<p>　　Dear Editor，</p>
+<p>　　I am writing this letter to you in order to give my views and opinions on the ban on the usage of plastic bags in our local areas. because I think the result of it fails a lot.</p>
+<p>　　I know that there are many local residents in favour of the usage of plastic bags so that many businesses would still attract their regular customers by using them. However, in order to cope with the worsening problem, my suggestion is that a substitute of plastic bags shall be made and accepted by the customers. In addition, local authorities are supposed to make relative laws against such behavior.</p>
+<p>　　I would appreciate it if you could take my suggestions seriously. I am looking forward to hearing from you soon.</p>
+<p>　　Yours Sincerely,</p>
+<p>　　Li Ming</p>
+<h2 id="年-5">2010年</h2>
+<h3 id="大作文-5">大作文</h3>
+<p><img src="https://i.loli.net/2019/02/27/5c768824b237d.png" alt="5c768824b237d" /> 参考范文：</p>
+<p>　　The enlightening picture portrays that a hot pot, with numerous ingredients in it, includes such domestic and alien cultures as literature, moral values and performing arts. It seems that the hot pot tastes very delicious because of the rich nutrition of the multi-cultural elements.</p>
+<p>　　Obviously, the picture characterizes the status quo of Chinese society in which Chinese and Western culture conflict with each other but also merge into a unique form to a certain degree. Since China has opened its door widely to the outside world, many people from different countries have been deeply fascinated by Chinese culture. They will accept and love the Chinese culture as a whole. In addition, Chinese culture should be well shared with foreign people, who have shown their enthusiasm towards China. Meanwhile, the Chinese people are also exposed to foreign cultures when more foreign people come to this oriental country. In this way people from various nations in the world will be able to acquire better understanding of each other and live peacefully in this world.</p>
+<p>　　In my opinion, the culture of any nation is a kind of precious heritage, and belongs to the whole mankind. With economic globalization, the blending of different cultures has become an inevitable trend of the time. No country is an isolated island, be it China or the western world. The clearer we grasp the current situation, the more it would be beneficial to the global villagers.</p>
+<h3 id="小作文notice">小作文（notice）</h3>
+<p>Directions:</p>
+<p>　　You are supposed to write for the postgraduate’association a notice to recruit volunteers for an international conference on globalization. The notice should include the basic qualification for applicants and the other information which you think is relevant。</p>
+<p>　　You should write about 100 words on ANSWER SHEET 2.</p>
+<p>　　Do not sign your own name at the end of the notice. Use " postgraduate’association " instead。(10 points)</p>
+<p>　　参考范文</p>
+<p>　　Volunteers Wanted</p>
+<p>　　January 9, 2010</p>
+<p>　　To improve students’ability and enrich extracurricular activities, the Postgraduate’Association is recruiting volunteers for an international conference on globalization to be held on April 7, 2010 in Beijing. To begin with, applicants should have Chinese nationality, a strong professional spirit, cheerful personality and be aged under 35. In addition, candidates must have outstanding skills at English listening comprehension and the ability to speak Chinese and English fluently. Finally, students with relevant professional experience are preferred. Those postgraduates who are interested in taking part in it may sign up with the monitor of their classes before February 1, 2010. Everybody is welcome to join in it。</p>
+<p>　　Postgraduate’Association</p>
+<h2 id="年-6">2011年</h2>
+<h3 id="大作文-6">大作文</h3>
+<p><img src="https://i.loli.net/2019/02/27/5c76886f1c7d2.png" alt="5c76886f1c7d2" /> 参考范文</p>
+<p>　　Our surroundings are being polluted fast and man's present efforts can not prevent it. Time is bringing us more people, and more people will bring us more industry, more cars, larger cities and the growing use of man-made materials.</p>
+<p>　　What can explain and solve this problem? The fact is that pollution is caused by man -- by his desire for a modern way of life. We make "increasing industrialization" our chief aim.So we are often ready to offer everything: clean air, pure water, good food, our health and the future of our children.There is a constant flow of people from the countryside into the cities, eager for the benefits of our modern society. But as our technological achievements have grown in the last twentyyears, pollution has become a serious problem.</p>
+<p>　　Isn't it time we stopped to ask ourselves where we are going-- and why? It makes one think of the story about the airline pilot who told his passengers over the loudspeaker,"I've some good news and some bad news. The good news is that we're making rapid progress at 530 miles per hour. The bad news is that we're lost and don't know where we're going. " The sad fact is that this becomes a true story when speaking of our modern society.</p>
+<p>　　In my opinion, to protect environment, the government must take even more concrete measures. First, it should let people fully realize the importance of environmental protection through education. Second, much more efforts should be made to put the population planning policy into practice, because more people means more people means more pollution. Finally, those who destroy the environment intentionally should be severely punished. We should let them know that destroying environment means destroying mankind themselves.</p>
+<h3 id="小作文-5">小作文</h3>
+<p>Directions:</p>
+<p>　　Write a letter to a friend of yours to</p>
+<p>　　1) recommend one of your favorite movies and</p>
+<p>　　2) give reasons for your recommendation.</p>
+<p>　　You should write about 100 words on ANSWER SHEET2.</p>
+<p>　　Do not sign your own name at the end of the letter. Use”Li Ming”instead.</p>
+<p>　　Do not write the address.(10points)</p>
+<p>　　小作文范文一：</p>
+<p>　　Dear Liu Lei,</p>
+<p>　　I’m writing to tell you about a fantastic movie I have just watched, as we always share the same taste of movies.</p>
+<p>　　The movie is Avatar, which tells a story of a soldier who, on an alien planet filled with exotic life forms, finds himself torn between two worlds in a fight for the survival of the alien people. Besides the touching and thrilling story, the movie also features brilliant visual effects, thanks to the talented director and advanced computer technology.</p>
+<p>　　So I recommend it to you as one of the best movies I have ever watched. I’m sure you will love it as much as I do. I’m looking forward to discussing more with you after you watch it.</p>
+<p>　　Yours,</p>
+<p>　　Li Ming</p>
+<p>　　小作文范文二：</p>
+<p>　　Dear Sara,</p>
+<p>　　Recently I have seen such a wonderful movie, The One, that I can’t help sharing it with you. I believe you must have heard about it, because its director Zhang Jixia, together with the main cast, is busy promoting the movie around the world.</p>
+<p>　　Four characteristics make it shining among all movies. First of all, Zhang is a world class director who is famous for the spectacular scenery. Second, it presents a pure and strong love between two youngsters which is full of ups and downs. Last but not the least, the leading roles are played by Liu Ying and Gong Ceng. They are your favorite actor and actress as well as mine.</p>
+<p>　　So I strongly recommend you to see the movie, and then share your feelings with me.</p>
+<p>　　Yours,</p>
+<p>　　Li Ming</p>
+<p>　　小作文范文三：</p>
+<p>　　Dear Liu Lei,</p>
+<p>　　I’m writing to tell you about a fantastic movie I have just watched, as we always share the same taste of movies.</p>
+<p>　　The movie is Avatar, which tells a story of a soldier who, on an alien planet filled with exotic life forms, finds himself torn between two worlds in a fight for the survival of the alien people. Besides the touching and thrilling story, the movie also features brilliant visual effects, thanks to the talented director and advanced computer technology.</p>
+<p>　　So I recommend it to you as one of the best movies I have ever watched. I’m sure you will love it as much as I do. I’m looking forward to discussing more with you after you watch it.</p>
+<p>　　Yours,</p>
+<p>　　Li Ming</p>
+<h2 id="年-7">2012年</h2>
+<h3 id="大作文-7">大作文</h3>
+<p><img src="https://i.loli.net/2019/02/27/5c76889646332.png" alt="5c76889646332" /> 参考范文：</p>
+<p>　　In the above picture, we can see an interesting scene: a bottle is knocked over with the liquid inside splitting out, and two men respond to it in totally different ways. One is expressing his disappointment for the loss of half of the liquid while the other feels thankful for the remaining half with a smile on his face. Obviously, the drawer wants to tell us that different people may have different outlooks on various difficulties in life.</p>
+<p>　　When faced with obstacles in life, the pessimistic person always focuses on the negative side and exaggerates the worst situation, while the optimistic one always look on the bright side of life. The pessimistic person chooses to give up quickly and then broods over their loss or failure, which in turn will throw their life in the vicious circle. On the contrary, the optimistic person, who always bears hope in mind, will never flinch and will summon up courage to find the way to conquer the obstacles. Therefore, the way people perceive difficulties will determine their way to cope with them.</p>
+<p>　　From the above discussion, we come to know that if people want to succeed in this highly competitive society, they should try to develop an optimistic perception toward life. Moreover, the government, mass media and schools should take the responsibly to awaken people to the significance of optimism. Only in these ways can people achieve more rapid progress and greater success in their life.</p>
+<p>###小作文 Directions: Some internationals students are coming to your university. Write them an email in the name of the Students’ Union to</p>
+<p>　　1) extend your welcome and</p>
+<p>　　2) provide some suggestions for their campus life here.</p>
+<p>　　You should write about 100 words on ANSWER SHEET2.Do not sign your name at the end of the letter. Use “Li Ming” instead.</p>
+<p>　　Do not write the address (10 points)</p>
+<p>　　参考范文</p>
+<p>　　Dear friends,</p>
+<p>　　On behalf of the Students’ Union, I am writing to express my warmest welcome to all of you.</p>
+<p>　　Since you will live and study in a totally different environment, I would like to make several practical suggestions with regard to your life in our university. First of all, you’d better learn as much Chinese as possible to get along better with Chinese students and teachers. In addition, it is recommended that you take part in some extracurricular activities so that you can improve your interpersonal skills and expand your horizon. Finally, please relax yourself and feel confident toward your future life.</p>
+<p>　　We are looking forward to seeing you soon and wish everything goes well.</p>
+<p>　　Yours sincerely,</p>
+<p>　　Li Ming</p>
+<h2 id="年-8">2013年</h2>
+<h3 id="大作文-8">大作文</h3>
+<p><img src="https://i.loli.net/2019/02/27/5c7688aded83c.png" alt="5c7688aded83c" /> 参考范文</p>
+<p>　　Recently, there has been a growing concern among the public over the topic of the choice after graduation. As is described in the picture, a group of graduates are facing various roads to go, such as searching for jobs, pursuing further study, going abroad and becoming entrepreneurs. The picture intends to convey us that, as adults, college graduates have to make their own decisions about future life.</p>
+<p>　　After graduation, college students should choose future life based on their own realities and dreams. For those, who are eager to become economically independent and to put into practice what they have learned in college, taking a job or doing poineering work may be satisfying and rewarding. Getting established as a bread-winner after graduation is their main desire. By contrast, others who want to take advantage of the favorable conditions in college, however, ought to try to enroll in graduate programs inside or outside. For them, a Master's degree or even a Doctoral degree represents a much more ambitious goal than a bachelor's degree, because they cherish lifetime success and interest more in academic achievements than money.</p>
+<p>　　It is sensible that we should take a rational attitude towards the decisive choice. For the part of my own, getting a higher degree abroad has long been my dream. I’m a strong believer that one should do more research and learn more while he or she is still young.</p>
+<h3 id="小作文-6">小作文</h3>
+<p>Directions:</p>
+<p>　　Write an e-mail of about 100 words to a foreign teacher in your college, inviting him/her to be a judge for the upcoming English speech contest.</p>
+<p>　　You should include the details you think necessary.</p>
+<p>　　You should write neatly on the ANSWER SHEET.</p>
+<p>　　Do not sign your own name at the end of the e-mail. Use “Li Ming” instead.</p>
+<p>　　Do not write the address. (10 points)</p>
+<p>　　参考范文：</p>
+<p>　　Dear professor,</p>
+<p>　　I am the chairman of the Students’ Union of Foreign Language Department in Peking University. We plan to hold an English speech contest and I am writing to ask whether you can honor us to be a judge for the competition.</p>
+<p>　　The contest will be held in Room 201, Teaching Building No. 3 on next Sunday, January 12, 2013. It will begin at 6:30 and may last for 3 hours. Participants are excellent students fluent in spoken English from different majors in our university. Judges to be invited include another three professors and language experts who are very familiar to you.</p>
+<p>　　We would be greatly honored if you can show your presence and provide us with your valuable comments. Please contact us at 1234567 if you can come.</p>
+<p>　　Yours sincerely,</p>
+<p>　　Li Ming</p>
+<h2 id="年-9">2014年</h2>
+<h3 id="大作文-9">大作文</h3>
+<p><img src="https://i.loli.net/2019/02/27/5c7688de71c4f.png" alt="5c7688de71c4f" /> As is vividly described in the left part of the drawing, thirty years ago, there stood a delicate mother, holding the tiny hand of a lovely girl, who wore a red scarf. On the contrary, the right part of the picture illustrates that with time flying quickly, the little girl, who has already grown up as a gorgeous lady, is supporting her old mother. We are informed: accompanying.</p>
+<p>　　It is without saying that the old and the young are two indispensable parts in society. On the one hand, what we have and enjoy now was created by our parents in the early days, as the old Chinese saying goes, "One generation plants tress under whose shade another generation rests". On the other hand, all of us are supposed to take good care of the youngsters, too. It is children who make us see the future of our state, for they are the future builders of our country.</p>
+<p>　　The young should consider it a moral obligation respecting and taking care of old parents. Meanwhile, it is also the duty of the parents to protect, educate and look after the youths. Let's bear this in mind and cultivate that virtue together, because only by doing so, can we feel as if we were living in a happy and harmonious family.</p>
+<h3 id="小作文-7">小作文</h3>
+<p>Directions:</p>
+<p>　　Write a letter of about 100 words to the president of your university, suggesting how to improve students’ physical condition.</p>
+<p>　　You should include the details you think necessary.</p>
+<p>　　You should write neatly on the ANSWER SHEET.</p>
+<p>　　Do not sign your own name at the end of the letter. Use “Li Ming” instead.</p>
+<p>　　Do not write the address.(10 points)</p>
+<p>　　参考范文</p>
+<p>　　Dear Mr. President,</p>
+<p>　　It is my great honor to write to you. As far as I am concerned, we have enough extraordinary lectures and what we need now is physical exercise.</p>
+<p>　　Since most of the time is spent in watching TV and playing computer games, our physical conditions are not good enough. i still have some suggestions for you. To begin with, our university should arrange more PE classes. To continue, we should have a fixed schedule for a certain time of outdoor activity. What is more, teaching faculty should be involved in the same kind of physical exercise.</p>
+<p>　　I hope that our university could take the responsibility for our students’ physical health. I will be highly grateful if you could take my suggestions into account.</p>
+<p>　　Yours sincerely,</p>
+<p>　　Li Ming</p>
+<h2 id="年-10">2015年</h2>
+<h3 id="大作文-10">大作文</h3>
+<p><img src="https://i.loli.net/2019/02/27/5c7689a1e1fe9.png" alt="5c7689a1e1fe9" /> 范文： 　A group of friends, boys or girls, are having a dinner party while each one of them is checking messages in their mobile phones without saying a word to one another, leaving the dishes untouched.We are informed that this is a gathering in the era of mobile phone.</p>
+<p>　　The above picture unveils a common social phenomenon and the symbolic meaning of the photo is the effect of the mobile phone on people's way of life. Undoubtedly, the phone provides us with considerable convenience, making many things possible which are beyond our dreams. As a communication tool, the phone makes us closer than ever before by providing immediate communication. Meanwhile, there are negative effects on our personal life. As is shown in the picture, people are imprisoned in their own world! They choose contacting online rather than communicating face to face.</p>
+<p>　　Accordingly, enjoying the convenience provided by the phones, we should bear in mind that human beings are social beings who need real interpersonal interactions! Joint efforts are needed to ensure people to have face-to-face communication! I believe a harmonious relationship between friends is awaiting us if we set aside our mobile phones and enjoy the untouched meal!</p>
+<h3 id="小作文-8">小作文</h3>
+<p>Directions:</p>
+<p>　　you are going to hold a club reading session. Write an email of about 100 words recommending a book to the club members.</p>
+<p>　　You should state reasons for your recommendation.</p>
+<p>　　You should write neatly on the ANWSER SHEET. Do not sign you own name at the end of the letter, use "Li Ming " instead. Do not write the address .(10 points)</p>
+<p>　　参考范文</p>
+<p>　　Dear friends，</p>
+<p>　　I am writing to tell you about a fantastic book I have just read, as we always share the same taste of books.</p>
+<p>　　The book is called Journey to the West, which tells us a story that four monks conquered multiple handicaps to achieve their final destination. Besides the touching and thrilling plot, the book also features humorous languages, thanks to the talented author.</p>
+<p>　　So I recommend it to all of you as one of the favorite books that I have ever read. I am sure you will love it as much as I do. I am looking forward to discussing more with you after you read it.</p>
+<p>　　Yours sincerely,</p>
+<p>　　Li Ming</p>
+<h2 id="年-11">2016年</h2>
+<h3 id="大作文-11">大作文</h3>
+<p><img src="https://i.loli.net/2019/02/27/5c768ac4655cc.png" alt="5c768ac4655cc" /> 范文：</p>
+<p>　　(When the issue of teaching and learning / education / role model arouses wide concern from the public, can we still stand there, hesitating for what occurs?) As we can see from the depiction, a father, sitting in front of a television which broadcasts some kinds of soap operas, is appreciating nuts and bolts of these invariable plots, without any caring about his kids. Actually, it is a Morning Call to send us a message that we adults always perform something wasting much of precious time, thus spoiling youth as every second elapses.</p>
+<p>　　(But my own worry today is less that of the overwhelming problem of common housewives or househusbands than it is of the slightly more luxurious agony of the decline in time-managing ability even of the educated teenagers.) Several factors could weigh heavily for this degeneration, yet, suspended at the top of the list are the following two aspects. To begin with, habit is habit. We parents are good at giving ourselves sufficient excuses to support what we always do in our daily life. If one example is needed, I could not but mention the following well-known scientist, whose name is Freud, illuminating that a kind of habit, representing a sense of spiritual existence, can never be changed as long as continuing for 47 days, nor is this kind of negative model behaviors. Furthermore, externally, our society is witnessing an overwhelming number of low-level TV programs, ranging from entertaining shows, TV talk shows and TV series to some other inferior products, which differ in forms as well as broadcasting time but never in their contents. Then, the consequence is distinct. It goes with no exaggeration to say that soap opera ruins the concept of “Like father, like son”.</p>
+<p>　　Fortunately, that is not the Day of Judgment. It is, undoubtedly, the very time that we should take some available methods to end up these inappropriate behaviors, including laying down the effective regulations to arrange family time, shaping a moderate education / family outlook and guaranteeing more rational lifestyles.</p>
+<h3 id="小作文notice-1">小作文（notice）</h3>
+<p>Suppose you are a libraian in your university. write a notice of about 100 words, providing the new-enrolled international students with relevent information about the library.</p>
+<p>　　You should write nearly on the ANSWER SHEET</p>
+<p>　　Don not sign your own name at the end of the notice, use "li ming" instead</p>
+<p>　　Do not write the adress (10 points)</p>
+<p>　　参考范文1：</p>
+<p>　　Notice</p>
+<p>　　For better serving the international students, a notice is released here to provide the necessary information about the library.</p>
+<p>　　The university library opens at 8 a.m. and closes at 10 p.m. from Monday to Friday, but from 9 a.m. to 9 p.m. on weekends. If you need to borrow books, please follow the following steps. First, bring your student card and register first at the librarian’s office. At most six books can be borrowed once from the library. You should keep in mind the days that you can keep the book(s) you borrow. Three months is the longest period. If you exceed the limited time, some fines should be paid.</p>
+<p>　　If you have any questions or suggestions about borrowing or returning books, telephone 010-8248119 or send an email to university@163.com. We sincerely hope you all enjoy the study and life in our university.</p>
+<p>　　University Library</p>
+<p>　　December 26, 2015</p>
+<p>　　参考范文2：</p>
+<p>　　Notice</p>
+<p>　　Welcome you to this university and this new-bulided library. I am a libraian in our university and will give you relevent information about the library.</p>
+<p>　　To begin with, there is circulation desk in the circulation hall so that you can borrow and return books more quickly and conveniently. Besides, the hours of loan books is during 9:00-17:00 from Monday to Friday so that you can take best advantage of the library. Moreover, the computer room in the library is big enough for you to search for some academic information charged by the hour so you must ensure that some money is left in your ID card.</p>
+<p>　　I hope you will find the above information useful and I would be ready to discuss the matter with you to further details. If you have any questions about the library, please call 123456or send messages to 123456@abc. Wish you a good time during your colledge life.</p>
+<p>　　ABC university</p>
+<p>　　June 10, 2015</p>
+<p>　　参考范文3：</p>
+<p>　　Notice</p>
+<p>　　This notice is to introduce briefly the library on our campus to those international students who are newly enrolled. The following points is supposed to arouse the attention of new overseas students. At the top of the list, the library opens at 7:00 o’clock in the morning and closes at 22:30 everyday, so it is wise for anyone who wants to read books in the library and borrow book to remember the above mentioned time. More importantly, each foreign student need apply for an entrance card to the library in the International Students Office in our university. Last but not least, I, on behalf of our library, extend warm greetings to all newly students from abroad.</p>
+<p>　　If anyone has questions, please no not hesitate to call 86010123 or send message to liabrarys@ccc.edu.cn for the detailed information.</p>
+<p>　　参考范文4：</p>
+<p>　　Notice</p>
+<p>　　First, welcome to our university! Since you are new here, in order to enable you to make good use of the library, some relevant information about the library is given as follows.</p>
+<p>　　The library is open from 7:00 am to 10:00 pm every day except national holidays, and you can borrow books needed from the front desk which is located on the first floor, where you can have a break on the comfortable sofa. Besides, for your reference, on the second floor are books related to the social science and on the third floor are books related to natural science. If you have any problem, you can come to the information desk to ask for help.</p>
+<p>　　I hope these pieces of information will be of great help to your future study the Library of the University</p>
+<p>　　参考范文5：</p>
+<p>　　Notice</p>
+<p>　　December 26, 2015</p>
+<p>　　Welcome to our university! As a librarian, I would like to provide you with detailed information as regards our library.</p>
+<p>　　To begin with, since computers are used by all major libraries to streamline cataloguing, we also have access to the Internet via computers. In addition, by the end of last semester, we have already replaced all the outdated facilities and provide more conveniences to readers. The last but not the least, we have just prolonged the opening hour of our library, which is from 8 a.m. to 10 p.m.</p>
+<p>　　In the end, we are so glad to hear that you the opportunity to study in our university. I am sure you will have a wonderful time here.</p>
+<p>　　Li Ming</p>
+<h2 id="年-12">2017年</h2>
+<h3 id="大作文-12">大作文</h3>
+<p><img src="https://i.loli.net/2019/02/27/5c768adfc1b5f.png" alt="5c768adfc1b5f" /> 范文一：</p>
+<p>What is clearly presented in the picture is two opposite behaviors. In the first picture ,there are a lot of books besides a boy, but he doesn’t read any book at all. On the contrary，, the second boy is making a plan of reading and carrying it out. Nothing can be more far-reaching and thought-provoking than this drawing!</p>
+<p>　　Apparently ,the implication of the given picture can be interpreted with regard to the significance of taking actions.No one can deny the fact that taking actions is extremely essential to achieve your goals. Only by putting your dream into action, can you really realize it. If you never take actions, you will never have a chance to win. Just as an old Chinese saying goes: “The journey of a thousand miles starts with a single step.” The more actions we take, the more likely we are to accumulate experience, master skills and get close to our destination. To further demonstrate the importance of taking actions, I would like to take a famous fable as a case in point: the Foolish Old Man who dreamed of removing the mountain in front of his gate began with carrying away small stones and finally realized his dream.</p>
+<p>　　Consequently, I believe, on the one hand, our government and the media should lose no opportunity to publicize the importance of taking actions. On the other hand, in our daily life, more than just thinking of something, we have to put it into action. Only by doing so, can we achieve our objectives and realize our dream. 范文二： 　　Portrayed in the two cartoons is thought-provoking: In the left one, a young man, comfortably lounging on the chair, is looking at his huge bookshelf full of books contentedly, while the other, in the right drawing, is determined to finish reading 20 books in a year.</p>
+<p>　　By this scenario, the cartoonist is trying to awaken us to the importance of reading and sticking to our goals. It is universally held that with the advance of modern society, only those equipped with updated knowledge which requires constant reading are most likely to reach the summit of the success. Conversely, without persistent learning and taking actions, our objectives are bound to be a fantasy. Indeed, people fail always because they stop trying, not because they encounter invincible difficulties.</p>
+<p>　　From what has been mentioned above, we may reasonably arrive at the conclusion that only those who keep learning and cherish the spirit of persistence have opportunities to succeed. Therefore, such essence is an important virtue worthy of being fostered. If you understand and adhere to this principle in your study and work, you will definitely benefit greatly.</p>
+<h3 id="小作文-9">小作文</h3>
+<p>Directions：</p>
+<p>　　You are to write an email to James Cook , a newly-arrived Australian professor , recommending some tourist attractions in your city . Please give reasons for your recommendation .</p>
+<p>　　You should write neatly on the ANSWER SHEET .</p>
+<p>　　Do not sign your own name at the end of the email . Use "Li Ming" instead.</p>
+<p>　　Do not write the address . (10 points)</p>
+<p>　　【参考范文】</p>
+<p>　　Dear James Cook,</p>
+<p>　　Welcome to China! I'm writing this email to recommend some scenic spots in Beijing to you so that you can have a wonderful time here.</p>
+<p>　　First of all, you could have a visit to the Summer Palace and Forbidden City, which are renowned for its old buildings and diverse cultures. After that, it is advisable to go to Wang Fujing, where you can have a taste of some delicious local food while enjoying the traditional culture. Finally, you can go to the National Museum, in which some traditional art exhibitions are being held. What do you think of my plans?</p>
+<p>　　I sincerely hope that you could enjoy yourselves in Beijing and it will be my pleasure to be your guide.</p>
+<p>　　Yours sincerely,</p>
+<p>　　Li Ming</p>
+<h2 id="年-13">2018年</h2>
+<h3 id="大作文-13">大作文</h3>
+<p><img src="https://i.loli.net/2019/02/27/5c768af4bcbf8.png" alt="5c768af4bcbf8" /> 范文： 　　In front of a desktop sits a young boy who is staring at the screen and selecting the curriculum.Apparently, a trace of hesitancy showed in his eyes.He is considering whether to choose the courses which are high scored, easily passed with less homework, or to choose those that contain new knowledge, focus on creating and are difficult to learn. 　　The implication echoed by this cartoon can be summarized as a philosophic topic in our daily life：the success of a man is closely related to the choice made by himself. Nevertheless, I cherish a belief that we cannot tell whether the selection is good or not, and as long as we adhere to our decision, success will be realized step by step. Although making a choice is essential to help determine the direction of our way, judged from the personal aspect, persistence functions as an indispensable driving force to keep up our spirit and to assist us to fulfill our study and work. However, some people, pacing up and down, are not industrious/diligent and try to find a short-cut success. In fact, only those who are hard-working and brave enough to overcome obstacles of all sorts are most likely to reach the summit of success. 　　Accordingly, persistence and making our own decision rationally are badly needed in every aspect of our society. In order to bring out this potential capability, our education system is supposed to be reformed fundamentally, focusing on cultivating the ability of confronting challenges. As an old saying goes:” No pain, no gain.”</p>
+<h3 id="小作文-10">小作文</h3>
+<p>Directions:</p>
+<p>　　Write an email to all international experts in your university, inviting them to attend a graduation ceremony. In this letter, you should state the time, place and other information about the ceremony.</p>
+<p>　　You should write neatly on the ANWSER SHEET.</p>
+<p>　　Do not sign you own name at the end of the letter, use “Li Ming ” instead.</p>
+<p>　　Do not write the address .(10 points) 范文： Dear Experts, 　　I am the chairman of the Students' Union of our university. As we all know, our graduation ceremony is around the corner. And I am writing for the purpose of asking whether you can honor us to attend it. 　　You are admired by all the students and we would be grateful if you could be present at the ceremony to be held in our auditorium on June 26th, at 7 p.m. And on behalf of the university, I genuinely invite you to be our distinguished guests to award graduation certificates to students who have completed the required coursework at passing grades. If so, further details about the activity will be sent. 　　Your presences are cordially requested and appreciated, and I am looking forward to your replies at your earliest convenience. 　　Yours sincerely, Li Ming</p>
+]]></content>
+      <categories>
+        <category>Languages</category>
+        <category>English</category>
+      </categories>
+      <tags>
+        <tag>英语</tag>
+        <tag>考研</tag>
+        <tag>真题</tag>
+        <tag>作文</tag>
+      </tags>
+  </entry>
+</search>
