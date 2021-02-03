@@ -31,7 +31,7 @@
 <meta property="og:description" content="计算机研究僧一枚。">
 <meta property="og:locale" content="zh_CN">
 <meta property="article:published_time" content="2019-10-17T10:44:05.000Z">
-<meta property="article:modified_time" content="2021-02-03T02:59:28.396Z">
+<meta property="article:modified_time" content="2021-02-03T05:20:16.540Z">
 <meta property="article:author" content="Louie C">
 <meta name="twitter:card" content="summary">
 
@@ -286,24 +286,6 @@
     
 
 
-      <div class="tabs tabs-comment">
-        <ul class="nav-tabs">
-            <li class="tab"><a href="#comment-disqus">disqus</a></li>
-            <li class="tab"><a href="#comment-utterances">utterances</a></li>
-        </ul>
-        <div class="tab-content">
-            <div class="tab-pane disqus" id="comment-disqus">
-              
-  <div class="comments" id="disqus_thread">
-    <noscript>Please enable JavaScript to view the comments powered by Disqus.</noscript>
-  </div>
-  
-            </div>
-            <div class="tab-pane utterances" id="comment-utterances">
-              <div class="comments utterances-container"></div>
-            </div>
-        </div>
-      </div>
 
 <script>
   window.addEventListener('tabs:register', () => {
@@ -441,39 +423,7 @@
   // defer loading until the whole page loading is completed
   window.addEventListener('load', loadCount, false);
 </script>
-<script>
-  var disqus_config = function() {
-    this.page.url = "http://blog.louiechen.me/about/index.html";
-    this.page.identifier = "about/index.html";
-    this.page.title = "about";
-    };
-  NexT.utils.loadComments('#disqus_thread', () => {
-    if (window.DISQUS) {
-      DISQUS.reset({
-        reload: true,
-        config: disqus_config
-      });
-    } else {
-      var d = document, s = d.createElement('script');
-      s.src = 'https://louiesblog-1.disqus.com/embed.js';
-      s.setAttribute('data-timestamp', '' + +new Date());
-      (d.head || d.body).appendChild(s);
-    }
-  });
-</script>
 
-<script>
-NexT.utils.loadComments('.utterances-container', () => {
-  const script = document.createElement('script');
-  script.src = 'https://utteranc.es/client.js';
-  script.setAttribute('repo', "louiechan/louiechan.github.io");
-  script.setAttribute('issue-term', "pathname");
-  script.setAttribute('theme', "github-light");
-  script.crossOrigin = 'anonymous';
-  script.async = true;
-  document.querySelector('.utterances-container').appendChild(script);
-});
-</script>
 
 </body>
 </html>
