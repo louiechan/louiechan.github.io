@@ -389,6 +389,24 @@
   </span>
   <span class="author" itemprop="copyrightHolder">Louie C</span>
 </div>
+<div class="busuanzi-count">
+    <span class="post-meta-item" id="busuanzi_container_site_uv" style="display: none;">
+      <span class="post-meta-item-icon">
+        <i class="fa fa-user"></i>
+      </span>
+      <span class="site-uv" title="Total Visitors">
+        <span id="busuanzi_value_site_uv"></span>
+      </span>
+    </span>
+    <span class="post-meta-item" id="busuanzi_container_site_pv" style="display: none;">
+      <span class="post-meta-item-icon">
+        <i class="fa fa-eye"></i>
+      </span>
+      <span class="site-pv" title="Total Views">
+        <span id="busuanzi_value_site_pv"></span>
+      </span>
+    </span>
+</div>
   <div class="powered-by">Powered by <a href="https://hexo.io/" class="theme-link" rel="noopener" target="_blank">Hexo</a> & <a href="https://theme-next.js.org/" class="theme-link" rel="noopener" target="_blank">NexT.Gemini</a>
   </div>
 
@@ -408,71 +426,8 @@
 
 
   
+  <script async src="https://busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script>
 
-  <script src="https://cdn.jsdelivr.net/npm/firebase@8.2.5/firebase-app.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/firebase@8.2.5/firebase-firestore.js"></script>
-  <script>
-    firebase.initializeApp({
-      apiKey   : 'AIzaSyD6NhinZnU_BdSVtXS-wo-QJvVfjxim8U4',
-      projectId: 'blogviewcount-119a2'
-    });
-
-    function getCount(doc, increaseCount) {
-      // IncreaseCount will be false when not in article page
-      return doc.get().then(d => {
-        // Has no data, initialize count
-        let count = d.exists ? d.data().count : 0;
-        // If first view this article
-        if (increaseCount) {
-          // Increase count
-          count++;
-          doc.set({
-            count
-          });
-        }
-        return count;
-      });
-    }
-
-    function appendCountTo(el) {
-      return count => {
-        el.innerText = count;
-      };
-    }
-  </script>
-  <script>
-    (function() {
-      const db = firebase.firestore();
-      const articles = db.collection('articles');
-
-      if (CONFIG.page.isPost) {
-        // Fix issue #118
-        // https://developer.mozilla.org/en-US/docs/Web/API/Node/textContent
-        const title = document.querySelector('.post-title').textContent.trim();
-        const doc = articles.doc(title);
-        let increaseCount = CONFIG.hostname === location.hostname;
-        if (localStorage.getItem(title)) {
-          increaseCount = false;
-        } else {
-          // Mark as visited
-          localStorage.setItem(title, true);
-        }
-        getCount(doc, increaseCount).then(appendCountTo(document.querySelector('.firestore-visitors-count')));
-      } else if (CONFIG.page.isHome) {
-        const promises = [...document.querySelectorAll('.post-title')].map(element => {
-          const title = element.textContent.trim();
-          const doc = articles.doc(title);
-          return getCount(doc);
-        });
-        Promise.all(promises).then(counts => {
-          const metas = document.querySelectorAll('.firestore-visitors-count');
-          counts.forEach((val, idx) => {
-            appendCountTo(metas[idx])(val);
-          });
-        });
-      }
-    })();
-  </script>
 
 
 
