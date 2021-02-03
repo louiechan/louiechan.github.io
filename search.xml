@@ -1,50 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <search>
   <entry>
-    <title>修复KDE Plasma 5.15.5 在NVIDIA Optimus的PC上使用NVIDIA显卡时桌面无响应的问题</title>
-    <url>/2019/06/10/%E4%BF%AE%E5%A4%8DKDE-Plasma-5-15-5-%E5%9C%A8NVIDIA-Optimus%E7%9A%84PC%E4%B8%8A%E4%BD%BF%E7%94%A8NVIDIA%E6%98%BE%E5%8D%A1%E6%97%B6%E6%A1%8C%E9%9D%A2%E6%97%A0%E5%93%8D%E5%BA%94%E7%9A%84%E9%97%AE%E9%A2%98/</url>
-    <content><![CDATA[<h2 id="系统信息">系统信息</h2>
-<figure class="highlight bash"><table><tr><td class="code"><pre><span class="line">Linux/KDE Plasma: manjaro 18.0.4 Illyria</span><br><span class="line">KDE Plasma Version: 5.15.5</span><br><span class="line">KDE Frameworks Version: 5.58.0</span><br><span class="line">Qt Version: 5.12.3</span><br></pre></td></tr></table></figure>
-<h2 id="bug原因">bug原因</h2>
-<a id="more"></a>
-<p>来自kde社区Erik：</p>
-<blockquote>
-<p>Alright, I think I see what the issue is. For context, on PRIME systems, since there isn't actually a display connected to the NVIDIA GPU, we rely on xf86-video-modeset, which drives the Intel GPU, to call to our driver after each vblank. However, it will actually only do so if there has been damage to the screen. So what I think we have here is QtQuick's thread waiting on this vblank signal before swapping buffers (since we set MaxFramesAllowed to 1), and KWin's main compositing thread waiting on the QtQuick thread. Since KWin isn't rendering to the screen while it waits, no damage occurs and hence this vblank signal is never sent. I think some timeout is what eventually gets things going again (after about 30 seconds). Does that make sense</p>
-</blockquote>
-<h2 id="修复方式">修复方式</h2>
-<p>对kwin和qt5-base 打特定patch，然后编译安装。具体如下。</p>
-<h3 id="patch-kwin">patch kwin</h3>
-<ol type="1">
-<li><p>从<a href="https://download.kde.org/stable/plasma/">https://download.kde.org/stable/plasma/</a>下载对应版本的kwin源代码 。</p></li>
-<li><p>应用如下的patch，使用<code>tar -Jcf</code>重新打包并计算sha256sum值</p>
-<figure class="highlight diff"><table><tr><td class="code"><pre><span class="line"><span class="comment">diff --git a/main_x11.cpp b/main_x11.cpp</span></span><br><span class="line"><span class="comment">index c83b8240b..17b6060e4 100644</span></span><br><span class="line"><span class="comment">--- a/main_x11.cpp</span></span><br><span class="line"><span class="comment">+++ b/main_x11.cpp</span></span><br><span class="line"><span class="meta">@@ -45,6 +45,7 @@</span> along with this program.  If not, see &lt;http://www.gnu.org/licenses/&gt;.</span><br><span class="line"> #include &lt;QPushButton&gt;</span><br><span class="line"> #include &lt;QVBoxLayout&gt;</span><br><span class="line"> #include &lt;QX11Info&gt;</span><br><span class="line"><span class="addition">+#include &lt;QSurfaceFormat&gt;</span></span><br><span class="line"></span><br><span class="line"> // system</span><br><span class="line"> #ifdef HAVE_UNISTD_H</span><br><span class="line"><span class="meta">@@ -416,6 +417,9 @@</span> KWIN_EXPORT int kdemain(int argc, char * argv[])</span><br><span class="line"></span><br><span class="line">     KWin::Application::createAboutData();</span><br><span class="line">     KQuickAddons::QtQuickSettings::init();</span><br><span class="line"><span class="addition">+    QSurfaceFormat format = QSurfaceFormat::defaultFormat();</span></span><br><span class="line"><span class="addition">+    format.setSwapInterval(0);</span></span><br><span class="line"><span class="addition">+    QSurfaceFormat::setDefaultFormat(format);</span></span><br><span class="line"></span><br><span class="line">     QCommandLineOption replaceOption(QStringLiteral(&quot;replace&quot;), i18n(&quot;Replace already-running ICCCM2.0-compliant window manager&quot;));</span><br></pre></td></tr></table></figure>
-<ol start="3" type="1">
-<li>从<a href="https://git.archlinux.org/svntogit/packages.git/tree/trunk?h=packages/kwin">https://git.archlinux.org/svntogit/packages.git/tree/trunk?h=packages/kwin</a>获取<code>PKGBUILD</code>和<code>kwin.install</code>文件，修改<code>PKGBUILD</code>中的源代码地址和sha256sum,使用<code>makepkg -si --skippgpcheck</code>编译安装，当然也可以<code>--skipchecksums</code></li>
-</ol></li>
-</ol>
-<h3 id="patch-qt5-base">patch qt5-base</h3>
-<p>基本步骤同重新编译kwin。patch如下：</p>
-<figure class="highlight diff"><table><tr><td class="code"><pre><span class="line"><span class="comment">diff --git a/src/plugins/platforms/xcb/gl_integrations/xcb_glx/qglxintegration.cpp b/src/plugins/platforms/xcb/gl_integrations/xcb_glx/qglxintegration.cpp</span></span><br><span class="line"><span class="comment">index 4adf662152..434ea60bfb 100644</span></span><br><span class="line"><span class="comment">--- a/src/plugins/platforms/xcb/gl_integrations/xcb_glx/qglxintegration.cpp</span></span><br><span class="line"><span class="comment">+++ b/src/plugins/platforms/xcb/gl_integrations/xcb_glx/qglxintegration.cpp</span></span><br><span class="line"><span class="meta">@@ -601,6 +601,7 @@</span> void QGLXContext::doneCurrent()</span><br><span class="line">     else</span><br><span class="line">         glXMakeCurrent(m_display, 0, 0);</span><br><span class="line">     m_isPBufferCurrent = false;</span><br><span class="line"><span class="addition">+    m_swapInterval = -1;</span></span><br><span class="line"> &#125;</span><br><span class="line"></span><br><span class="line"> void QGLXContext::swapBuffers(QPlatformSurface *surface)</span><br></pre></td></tr></table></figure>
-<ul>
-<li><p>源代码网址：<a href="https://download.qt.io/official_releases/qt/">https://download.qt.io/official_releases/qt/</a></p></li>
-<li><p>PKGBUILD：<a href="https://git.archlinux.org/svntogit/packages.git/tree/trunk?h=packages/qt5-base">https://git.archlinux.org/svntogit/packages.git/tree/trunk?h=packages/qt5-base</a></p></li>
-</ul>
-<h2 id="references">references</h2>
-<ul>
-<li><a href="https://bugs.kde.org/show_bug.cgi?id=406180">https://bugs.kde.org/show_bug.cgi?id=406180</a></li>
-</ul>
-]]></content>
-      <categories>
-        <category>Linux</category>
-      </categories>
-      <tags>
-        <tag>Linux</tag>
-        <tag>KDE</tag>
-        <tag>qt</tag>
-        <tag>NVIDIA</tag>
-      </tags>
-  </entry>
-  <entry>
     <title>Test</title>
     <url>/2019/01/03/Test/</url>
     <content><![CDATA[<h2 id="introduction">Introduction</h2>
@@ -99,6 +55,50 @@ the line graph shows/describes/illustrates/reveals/unfolds/compares/summarizes/s
         <tag>考研</tag>
         <tag>真题</tag>
         <tag>作文</tag>
+      </tags>
+  </entry>
+  <entry>
+    <title>修复KDE Plasma 5.15.5 在NVIDIA Optimus的PC上使用NVIDIA显卡时桌面无响应的问题</title>
+    <url>/2019/06/10/%E4%BF%AE%E5%A4%8DKDE-Plasma-5-15-5-%E5%9C%A8NVIDIA-Optimus%E7%9A%84PC%E4%B8%8A%E4%BD%BF%E7%94%A8NVIDIA%E6%98%BE%E5%8D%A1%E6%97%B6%E6%A1%8C%E9%9D%A2%E6%97%A0%E5%93%8D%E5%BA%94%E7%9A%84%E9%97%AE%E9%A2%98/</url>
+    <content><![CDATA[<h2 id="系统信息">系统信息</h2>
+<figure class="highlight bash"><table><tr><td class="code"><pre><span class="line">Linux/KDE Plasma: manjaro 18.0.4 Illyria</span><br><span class="line">KDE Plasma Version: 5.15.5</span><br><span class="line">KDE Frameworks Version: 5.58.0</span><br><span class="line">Qt Version: 5.12.3</span><br></pre></td></tr></table></figure>
+<h2 id="bug原因">bug原因</h2>
+<a id="more"></a>
+<p>来自kde社区Erik：</p>
+<blockquote>
+<p>Alright, I think I see what the issue is. For context, on PRIME systems, since there isn't actually a display connected to the NVIDIA GPU, we rely on xf86-video-modeset, which drives the Intel GPU, to call to our driver after each vblank. However, it will actually only do so if there has been damage to the screen. So what I think we have here is QtQuick's thread waiting on this vblank signal before swapping buffers (since we set MaxFramesAllowed to 1), and KWin's main compositing thread waiting on the QtQuick thread. Since KWin isn't rendering to the screen while it waits, no damage occurs and hence this vblank signal is never sent. I think some timeout is what eventually gets things going again (after about 30 seconds). Does that make sense</p>
+</blockquote>
+<h2 id="修复方式">修复方式</h2>
+<p>对kwin和qt5-base 打特定patch，然后编译安装。具体如下。</p>
+<h3 id="patch-kwin">patch kwin</h3>
+<ol type="1">
+<li><p>从<a href="https://download.kde.org/stable/plasma/">https://download.kde.org/stable/plasma/</a>下载对应版本的kwin源代码 。</p></li>
+<li><p>应用如下的patch，使用<code>tar -Jcf</code>重新打包并计算sha256sum值</p>
+<figure class="highlight diff"><table><tr><td class="code"><pre><span class="line"><span class="comment">diff --git a/main_x11.cpp b/main_x11.cpp</span></span><br><span class="line"><span class="comment">index c83b8240b..17b6060e4 100644</span></span><br><span class="line"><span class="comment">--- a/main_x11.cpp</span></span><br><span class="line"><span class="comment">+++ b/main_x11.cpp</span></span><br><span class="line"><span class="meta">@@ -45,6 +45,7 @@</span> along with this program.  If not, see &lt;http://www.gnu.org/licenses/&gt;.</span><br><span class="line"> #include &lt;QPushButton&gt;</span><br><span class="line"> #include &lt;QVBoxLayout&gt;</span><br><span class="line"> #include &lt;QX11Info&gt;</span><br><span class="line"><span class="addition">+#include &lt;QSurfaceFormat&gt;</span></span><br><span class="line"></span><br><span class="line"> // system</span><br><span class="line"> #ifdef HAVE_UNISTD_H</span><br><span class="line"><span class="meta">@@ -416,6 +417,9 @@</span> KWIN_EXPORT int kdemain(int argc, char * argv[])</span><br><span class="line"></span><br><span class="line">     KWin::Application::createAboutData();</span><br><span class="line">     KQuickAddons::QtQuickSettings::init();</span><br><span class="line"><span class="addition">+    QSurfaceFormat format = QSurfaceFormat::defaultFormat();</span></span><br><span class="line"><span class="addition">+    format.setSwapInterval(0);</span></span><br><span class="line"><span class="addition">+    QSurfaceFormat::setDefaultFormat(format);</span></span><br><span class="line"></span><br><span class="line">     QCommandLineOption replaceOption(QStringLiteral(&quot;replace&quot;), i18n(&quot;Replace already-running ICCCM2.0-compliant window manager&quot;));</span><br></pre></td></tr></table></figure>
+<ol start="3" type="1">
+<li>从<a href="https://git.archlinux.org/svntogit/packages.git/tree/trunk?h=packages/kwin">https://git.archlinux.org/svntogit/packages.git/tree/trunk?h=packages/kwin</a>获取<code>PKGBUILD</code>和<code>kwin.install</code>文件，修改<code>PKGBUILD</code>中的源代码地址和sha256sum,使用<code>makepkg -si --skippgpcheck</code>编译安装，当然也可以<code>--skipchecksums</code></li>
+</ol></li>
+</ol>
+<h3 id="patch-qt5-base">patch qt5-base</h3>
+<p>基本步骤同重新编译kwin。patch如下：</p>
+<figure class="highlight diff"><table><tr><td class="code"><pre><span class="line"><span class="comment">diff --git a/src/plugins/platforms/xcb/gl_integrations/xcb_glx/qglxintegration.cpp b/src/plugins/platforms/xcb/gl_integrations/xcb_glx/qglxintegration.cpp</span></span><br><span class="line"><span class="comment">index 4adf662152..434ea60bfb 100644</span></span><br><span class="line"><span class="comment">--- a/src/plugins/platforms/xcb/gl_integrations/xcb_glx/qglxintegration.cpp</span></span><br><span class="line"><span class="comment">+++ b/src/plugins/platforms/xcb/gl_integrations/xcb_glx/qglxintegration.cpp</span></span><br><span class="line"><span class="meta">@@ -601,6 +601,7 @@</span> void QGLXContext::doneCurrent()</span><br><span class="line">     else</span><br><span class="line">         glXMakeCurrent(m_display, 0, 0);</span><br><span class="line">     m_isPBufferCurrent = false;</span><br><span class="line"><span class="addition">+    m_swapInterval = -1;</span></span><br><span class="line"> &#125;</span><br><span class="line"></span><br><span class="line"> void QGLXContext::swapBuffers(QPlatformSurface *surface)</span><br></pre></td></tr></table></figure>
+<ul>
+<li><p>源代码网址：<a href="https://download.qt.io/official_releases/qt/">https://download.qt.io/official_releases/qt/</a></p></li>
+<li><p>PKGBUILD：<a href="https://git.archlinux.org/svntogit/packages.git/tree/trunk?h=packages/qt5-base">https://git.archlinux.org/svntogit/packages.git/tree/trunk?h=packages/qt5-base</a></p></li>
+</ul>
+<h2 id="references">references</h2>
+<ul>
+<li><a href="https://bugs.kde.org/show_bug.cgi?id=406180">https://bugs.kde.org/show_bug.cgi?id=406180</a></li>
+</ul>
+]]></content>
+      <categories>
+        <category>Linux</category>
+      </categories>
+      <tags>
+        <tag>Linux</tag>
+        <tag>KDE</tag>
+        <tag>qt</tag>
+        <tag>NVIDIA</tag>
       </tags>
   </entry>
   <entry>
